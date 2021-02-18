@@ -8,7 +8,6 @@
 #
 
 library(shiny)
-
 library(datasets)
 library(rsconnect)
 library(readr)
@@ -24,137 +23,18 @@ library(maptools)
 library(mapproj)
 library(shinyalert)
 
-
-nombr_dep = c("C.Valenciana" = 1
-              , "Homes/Hombres" = 1
-              , "Dones/Mujeres" = 1
-              , "Prov. Alacant/Alicante" = 1
-              , "Prov. Castelló/Castellón" = 1
-              , "Prov. València" = 1
-              , "DEPARTAMENT DE SALUT DE VINAROS" = "VINAROS"
-              , "DEPARTAMENT DE SALUT DE CASTELLO" = "CASTELLON"
-              , "DEPARTAMENT DE SALUT DE LA PLANA" = "LA PLANA"
-              , "DEPARTAMENT DE SALUT DE SAGUNT" = "SAGUNTO"
-              , "DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA" = "VALENCIA - CLINICO"
-              , "DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA" =  "VALENCIA - ARNAU DE VILANOVA"
-              , "DEPARTAMENT DE SALUT DE VALENCIA - LA FE" = "VALENCIA - LA FE"
-              , "DEPARTAMENT DE SALUT DE REQUENA" = "REQUENA"
-              , "DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL" = "C.E. JUAN LLORENS - TORRENT - ALD"
-              , "DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET" = "VALENCIA - DR. PESET"
-              , "DEPARTAMENT DE SALUT DE LA RIBERA" = "LA RIBERA"
-              , "DEPARTAMENT DE SALUT DE GANDIA" = "GANDIA"
-              , "DEPARTAMENT DE SALUT DE DENIA" = "DENIA"
-              , "DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT" = "XATIVA - ONTINYENT"
-              , "DEPARTAMENT DE SALUT D'ALCOI" = "ALCOI"
-              , "DEPARTAMENT DE SALUT DE LA MARINA BAIXA" = "VILA JOIOSA"
-              , "DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT" = "ALICANTE - SAN JUAN"
-              , "DEPARTAMENT DE SALUT D'ELDA" = "ELDA"
-              , "DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL" = "ALICANTE"
-              , "DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL" = "ELX"
-              , "DEPARTAMENT DE SALUT D'ORIHUELA" = "ORIHUELA"
-              , "DEPARTAMENT DE SALUT DE TORREVIEJA" = "TORREVIEJA"
-              , "DEPARTAMENT DE SALUT DE MANISES" = "MANISES"
-              , "DEPARTAMENT DE SALUT D'ELX-CREVILLENT" = "ELX-CREVILLENT"
-) 
-num_dep = c("C.Valenciana" = 0
-            , "Homes/Hombres" = 0
-            , "Dones/Mujeres" = 0
-            , "Prov. Alacant/Alicante" = 0
-            , "Prov. Castelló/Castellón" = 0
-            , "Prov. València" = 0
-            , "DEPARTAMENT DE SALUT DE VINAROS" = 01
-            , "DEPARTAMENT DE SALUT DE CASTELLO" = 02
-            , "DEPARTAMENT DE SALUT DE LA PLANA" = 03
-            , "DEPARTAMENT DE SALUT DE SAGUNT" = 04
-            , "DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA" = 05
-            , "DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA" =  06
-            , "DEPARTAMENT DE SALUT DE VALENCIA - LA FE" = 07
-            , "DEPARTAMENT DE SALUT DE REQUENA" = 08
-            , "DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL" = 09
-            , "DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET" = 10
-            , "DEPARTAMENT DE SALUT DE LA RIBERA" = 11
-            , "DEPARTAMENT DE SALUT DE GANDIA" = 12
-            , "DEPARTAMENT DE SALUT DE DENIA" = 13
-            , "DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT" = 14
-            , "DEPARTAMENT DE SALUT D'ALCOI" = 15
-            , "DEPARTAMENT DE SALUT DE LA MARINA BAIXA" = 16
-            , "DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT" = 17
-            , "DEPARTAMENT DE SALUT D'ELDA" = 18
-            , "DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL" = 19
-            , "DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL" = 20
-            , "DEPARTAMENT DE SALUT D'ORIHUELA" = 21
-            , "DEPARTAMENT DE SALUT DE TORREVIEJA" = 22
-            , "DEPARTAMENT DE SALUT DE MANISES" = 23
-            , "DEPARTAMENT DE SALUT D'ELX-CREVILLENT" = 24
-) 
-########################## MAPA
-
-Incidencia = tab$Incidencia[5:28]
-
-mapa <- rgdal::readOGR(
-    paste0(dsn = "./", layer ="departamentos_salud_ogr.json")
-)
-
-
-mapa_departamentos <- fortify(model = mapa, region = "DPTO_KEY")
-
-info_municipios <- mapa@data
-
-
-
-mapa_departamentos <- mapa_departamentos %>%
-    left_join(info_municipios, by = c("id" = "DPTO_KEY"))
-
-info_municipios$INCIDENCIA <- Incidencia
-info_municipios$id <- info_municipios$DPTO_KEY
-
-mapa_departamentos <- 
-    left_join(
-        x = mapa_departamentos,
-        y  = info_municipios,
-        by = "id"
-    )
-mapa_departamentos$DEPARTAMENTO <- mapa_departamentos$NOMBRE.x
-# Se eliminan puntos (se reduce la resoluciÃÂÃÂ³n)
-mapa_departamentos <- mapa_departamentos %>%
-    slice(seq(1, nrow(mapa_departamentos), 5))
-
-# Para etiqueratlo
-
-nombre_departamentos <- info_municipios$NOMBRE
-numero_incidencias <- info_municipios$INCIDENCIA
-lat <- as.numeric(mapa_departamentos$lat)
-
-long <- as.numeric(mapa_departamentos$long)
-
-datos2 <- data.frame(
-    "long" = long, "lat" = lat
-)
-
-datos1 <- data.frame(
-    "id" = c(1:24), "Incidencia" = Incidencia
-)
-
-#cordenadaa_departamentos$nombre_departamentos <- nombre_departamentos
-datos2$id <- as.numeric(mapa_departamentos$DPTOCRC.x)
-
-datos2 <- left_join(
-    x = datos2,
-    y = datos1,
-    by = "id"
-)
-cordenadaa_departamentos <- coordinates(mapa)
-colnames(cordenadaa_departamentos)  <- c("long", "lat")
-cordenadaa_departamentos  <-  as.data.frame(cordenadaa_departamentos)
-cordenadaa_departamentos$DEPARTAMENTOS <- nombre_departamentos
-
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
     
-    output$departamento1 <- renderText(input$Zona)
-    output$departamento2 <- renderText(input$Zona)
-    output$departamento3 <- renderText(input$Zona)
+    
+    ################################################
+    #####       FECHA DE ACTUALIZACION         #####
+    ################################################
     output$data_actualizacio <- renderPrint(data_actualitzacio)
+    
+    ################################################
+    #####        WIDGETS RANGO VALORES         #####
+    ################################################
     
     output$mitjana <- flexdashboard::renderGauge({
         valor <- tab$Mitjana[nombr_id[input$Zona]]
@@ -178,6 +58,12 @@ shinyServer(function(input, output) {
         ))
     })
     
+    ################################################
+    #####                 MAPA                 #####
+    ################################################
+    # UTILIZAMOS UN CONDICIONAL YA QUE ALGUNAS ZONAS 
+    # NO SON UN DEPARTAMENTOS Y ESTOS TIENEN UN 
+    # NUM_DEPARTAMENTO CON VALOR 1
     
     output$mapa <- renderPlot({
         valor = nombr_dep[nombr_id[input$Zona]]
@@ -236,9 +122,14 @@ shinyServer(function(input, output) {
         }
     })
     
+    
+    ################################################
+    #####     GRAFICA CASOS POSTIVIOS          #####
+    ################################################
+    
     output$evolucion <- renderPlot({
         btn1 <- input$Zona
-        btn0 <- "Data diagnòstic laboratori/fecha diagnóstico laboratorio"
+        btn0 <- "Data diagnÃ²stic laboratori/fecha diagnÃ³stico laboratorio"
         
         
         ggplot(datos_PDIA,aes(x = datos_PDIA[[btn0]], y = datos_PDIA[[btn1]]))+geom_line()+ scale_x_date()+labs(
@@ -247,6 +138,10 @@ shinyServer(function(input, output) {
         )
         
     })
+    
+    ################################################
+    #####        BOTONES DE INFORMACON         #####
+    ################################################
     
     observeEvent(input$btn1, {
         # Show a simple modal
@@ -286,5 +181,6 @@ shinyServer(function(input, output) {
                    closeOnEsc = TRUE,
                    closeOnClickOutside = TRUE)
     })
+    
     
 })
