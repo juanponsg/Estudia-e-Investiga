@@ -1,3 +1,5 @@
+
+
 library(shiny)
 library(datasets)
 library(rsconnect)
@@ -15,6 +17,10 @@ library(mapproj)
 library(shinythemes)
 library(shinyWidgets)
 library(shinyalert)
+library(fda)
+library(fda.usc)
+library(sf)
+
 
 ################################################
 #####        ALMACENAR DATOS PDIA          #####
@@ -22,13 +28,18 @@ library(shinyalert)
 
 datos_PDIA <- readr::read_delim("https://dadesobertes.gva.es/dataset/ce195af2-39ec-4f44-bb77-b14235519b0d/resource/cb50e7d2-0c0e-46b8-a359-a0fa35998577/download/covid-19-serie-de-casos-con-pdia-positiva-en-la-comunitat-valenciana.csv", 
                                 ";", escape_double = FALSE, trim_ws = TRUE, col_types = cols())
+Poblacion <- read_excel("Poblacion.xlsx")
+
+departamentos_mapa <- st_read("departamentos_salud_ogr.json")
 
 ################################################
 
-ultima_pos = length(datos_PDIA$`Data diagnÃ²stic laboratori/fecha diagnÃ³stico laboratorio`)
+ultima_pos = length(datos_PDIA$`Data diagnòstic laboratori/fecha diagnóstico laboratorio`)
 ini = ultima_pos-15
-Casos_Ãltimos_14_Dies = sum(datos_PDIA$C.Valenciana[ini:ultima_pos])
+Casos_Últimos_14_Dies = sum(datos_PDIA$C.Valenciana[ini:ultima_pos])
 ini_prev = ini - 15 # PARA LA TASA DE CRECIMIENTO
+data_actualitzacio = datos_PDIA$`Data diagnòstic laboratori/fecha diagnóstico laboratorio`[ultima_pos]
+
 
 
 ################################################
@@ -43,304 +54,334 @@ ini_prev = ini - 15 # PARA LA TASA DE CRECIMIENTO
 # TENDENCIA
 
 tab = tibble(
-  RegiÃ³ = "C. Valenciana",
+  Regió = "C. Valenciana",
   Mitjana = round(mean(datos_PDIA$C.Valenciana),3),
-  MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$C.Valenciana),3),
-  Casos_Ãltim_DÃ­a = datos_PDIA$C.Valenciana[ultima_pos],
+  Máxim_Alcançat = round(max(datos_PDIA$C.Valenciana),3),
+  Casos_Últim_Día = datos_PDIA$C.Valenciana[ultima_pos],
   Casos_Ultims_14_Dies = sum(datos_PDIA$C.Valenciana[ini:ultima_pos]),
   Casos_Totals = sum(datos_PDIA$C.Valenciana),
   Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[1])*100000, 3),
-  Tendencia = (sum(datos_PDIA$C.Valenciana[ini_prev:ini]) - sum(datos_PDIA$C.Valenciana[ini:ultima_pos]))
+  Tendencia = (sum(datos_PDIA$C.Valenciana[ini_prev:ini]) - sum(datos_PDIA$C.Valenciana[ini:ultima_pos])),
+  Varianza = round(sd(datos_PDIA$C.Valenciana),3)
 ) %>%
   add_row(
-    RegiÃ³ = "Homes",
+    Regió = "Homes",
     Mitjana = round(mean(datos_PDIA$`Homes/Hombres`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`Homes/Hombres`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`Homes/Hombres`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`Homes/Hombres`),3),
+    Casos_Últim_Día = datos_PDIA$`Homes/Hombres`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`Homes/Hombres`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`Homes/Hombres`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[1])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`Homes/Hombres`[ini_prev:ini]) - sum(datos_PDIA$`Homes/Hombres`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`Homes/Hombres`[ini_prev:ini]) - sum(datos_PDIA$`Homes/Hombres`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`Homes/Hombres`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dones",
+    Regió = "Dones",
     Mitjana = round(mean(datos_PDIA$`Dones/Mujeres`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`Dones/Mujeres`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`Dones/Mujeres`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`Dones/Mujeres`),3),
+    Casos_Últim_Día = datos_PDIA$`Dones/Mujeres`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`Dones/Mujeres`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`Dones/Mujeres`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[1])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`Dones/Mujeres`[ini_prev:ini]) - sum(datos_PDIA$`Dones/Mujeres`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`Dones/Mujeres`[ini_prev:ini]) - sum(datos_PDIA$`Dones/Mujeres`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`Dones/Mujeres`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Prov. Alacant",
+    Regió = "Prov. Alacant",
     Mitjana = round(mean(datos_PDIA$`Prov. Alacant/Alicante`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`Prov. Alacant/Alicante`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`Prov. Alacant/Alicante`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`Prov. Alacant/Alicante`),3),
+    Casos_Últim_Día = datos_PDIA$`Prov. Alacant/Alicante`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`Prov. Alacant/Alicante`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`Prov. Alacant/Alicante`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[2])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`Prov. Alacant/Alicante`[ini_prev:ini]) - sum(datos_PDIA$`Prov. Alacant/Alicante`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`Prov. Alacant/Alicante`[ini_prev:ini]) - sum(datos_PDIA$`Prov. Alacant/Alicante`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`Prov. Alacant/Alicante`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Prov. Castello",
-    Mitjana = round(mean(datos_PDIA$`Prov. CastellÃ³/CastellÃ³n`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`Prov. CastellÃ³/CastellÃ³n`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`Prov. CastellÃ³/CastellÃ³n`[ultima_pos],
-    Casos_Ultims_14_Dies = sum(datos_PDIA$`Prov. CastellÃ³/CastellÃ³n`[ini:ultima_pos]),
-    Casos_Totals = sum(datos_PDIA$`Prov. CastellÃ³/CastellÃ³n`),
+    Regió = "Prov. Castello",
+    Mitjana = round(mean(datos_PDIA$`Prov. Castelló/Castellón`),3),
+    Máxim_Alcançat = round(max(datos_PDIA$`Prov. Castelló/Castellón`),3),
+    Casos_Últim_Día = datos_PDIA$`Prov. Castelló/Castellón`[ultima_pos],
+    Casos_Ultims_14_Dies = sum(datos_PDIA$`Prov. Castelló/Castellón`[ini:ultima_pos]),
+    Casos_Totals = sum(datos_PDIA$`Prov. Castelló/Castellón`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[3])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`Prov. CastellÃ³/CastellÃ³n`[ini_prev:ini]) - sum(datos_PDIA$`Prov. CastellÃ³/CastellÃ³n`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`Prov. Castelló/Castellón`[ini_prev:ini]) - sum(datos_PDIA$`Prov. Castelló/Castellón`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`Prov. Castelló/Castellón`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Prov. Valencia",
-    Mitjana = round(mean(datos_PDIA$`Prov. ValÃ¨ncia`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`Prov. ValÃ¨ncia`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`Prov. ValÃ¨ncia`[ultima_pos],
-    Casos_Ultims_14_Dies = sum(datos_PDIA$`Prov. ValÃ¨ncia`[ini:ultima_pos]),
-    Casos_Totals = sum(datos_PDIA$`Prov. ValÃ¨ncia`),
+    Regió = "Prov. Valencia",
+    Mitjana = round(mean(datos_PDIA$`Prov. València`),3),
+    Máxim_Alcançat = round(max(datos_PDIA$`Prov. València`),3),
+    Casos_Últim_Día = datos_PDIA$`Prov. València`[ultima_pos],
+    Casos_Ultims_14_Dies = sum(datos_PDIA$`Prov. València`[ini:ultima_pos]),
+    Casos_Totals = sum(datos_PDIA$`Prov. València`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[4])*100000, 3), 
-    Tendencia = (sum(datos_PDIA$`Prov. ValÃ¨ncia`[ini_prev:ini]) - sum(datos_PDIA$`Prov. ValÃ¨ncia`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`Prov. València`[ini_prev:ini]) - sum(datos_PDIA$`Prov. València`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`Prov. València`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Vinaros",
+    Regió = "Dep. Vinaros",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[5])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE VINAROS`),3)
   )%>%
   add_row(
-    RegiÃ³ = "Dep. Castello",
+    Regió = "Dep. Castello",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[6])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE CASTELLO`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. La Plana",
+    Regió = "Dep. La Plana",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[7])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE LA PLANA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Sagunt",
+    Regió = "Dep. Sagunt",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[8])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE SAGUNT`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. VCIA Clinic-La Malva-Rosa",
+    Regió = "Dep. VCIA Clinic-La Malva-Rosa",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[9])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. VCIA Arnau de Vilanova Lliria",
+    Regió = "Dep. VCIA Arnau de Vilanova Lliria",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[10])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT VCIA ARNAU DE VILANOVA LLIRIA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Valencia- La Fe",
+    Regió = "Dep. Valencia- La Fe",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[11])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - LA FE`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Requena",
+    Regió = "Dep. Requena",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[12])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE REQUENA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Valencia Hosp. General",
+    Regió = "Dep. Valencia Hosp. General",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[13])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA -HOSPITAL GENERAL`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Valencia Doctor",
+    Regió = "Dep. Valencia Doctor",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[14])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE VALENCIA - DOCTOR PESET`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. La Ribera",
+    Regió = "Dep. La Ribera",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[15])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE LA RIBERA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Gandia",
+    Regió = "Dep. Gandia",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[16])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE GANDIA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Denia",
+    Regió = "Dep. Denia",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[17])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE DENIA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Xativa-Ontinyent",
+    Regió = "Dep. Xativa-Ontinyent",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[18])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE XATIVA - ONTINYENT`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Alcoi",
+    Regió = "Dep. Alcoi",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[19])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT D'ALCOI`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. La Marina Baixa",
+    Regió = "Dep. La Marina Baixa",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[20])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE LA MARINA BAIXA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Sant Joan D'Alacant",
+    Regió = "Dep. Sant Joan D'Alacant",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[21])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT-SANT JOAN D'ALACANT`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Elda",
+    Regió = "Dep. Elda",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[22])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT D'ELDA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Alacant Hosp. General",
+    Regió = "Dep. Alacant Hosp. General",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[23])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT D'ALACANT - HOSPITAL GENERAL`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Elx Hosp. General",
+    Regió = "Dep. Elx Hosp. General",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[24])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX - HOSPITAL GENERAL`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Orihuela",
+    Regió = "Dep. Orihuela",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[25])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT D'ORIHUELA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Torrevieja",
+    Regió = "Dep. Torrevieja",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[26])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE TORREVIEJA`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Manises",
+    Regió = "Dep. Manises",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[27])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT DE MANISES`),3)
   ) %>%
   add_row(
-    RegiÃ³ = "Dep. Elx-Crevillent",
+    Regió = "Dep. Elx-Crevillent",
     Mitjana = round(mean(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`),3),
-    MÃ¡xim_AlcanÃ§at = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`),3),
-    Casos_Ãltim_DÃ­a = datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`[ultima_pos],
+    Máxim_Alcançat = round(max(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`),3),
+    Casos_Últim_Día = datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`[ultima_pos],
     Casos_Ultims_14_Dies = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`[ini:ultima_pos]),
     Casos_Totals = sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`),
     Incidencia = round((Casos_Ultims_14_Dies/Poblacion$POBLACION[28])*100000, 3),
-    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`[ini:ultima_pos]))
+    Tendencia = (sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`[ini_prev:ini]) - sum(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`[ini:ultima_pos])),
+    Varianza = round(sd(datos_PDIA$`DEPARTAMENT DE SALUT D'ELX-CREVILLENT`),3)
   )
 
 
@@ -356,8 +397,8 @@ nombr_id = c("C.Valenciana" = 1
              , "Homes/Hombres" = 2
              , "Dones/Mujeres" = 3
              , "Prov. Alacant/Alicante" = 4
-             , "Prov. CastellÃ³/CastellÃ³n" = 5
-             , "Prov. ValÃ¨ncia" = 6
+             , "Prov. Castelló/Castellón" = 5
+             , "Prov. València" = 6
              , "DEPARTAMENT DE SALUT DE VINAROS" = 7
              , "DEPARTAMENT DE SALUT DE CASTELLO" = 8
              , "DEPARTAMENT DE SALUT DE LA PLANA" = 9
@@ -390,8 +431,8 @@ nombr_dep = c("C.Valenciana" = 1
               , "Homes/Hombres" = 1
               , "Dones/Mujeres" = 1
               , "Prov. Alacant/Alicante" = 1
-              , "Prov. CastellÃ³/CastellÃ³n" = 1
-              , "Prov. ValÃ¨ncia" = 1
+              , "Prov. Castelló/Castellón" = 1
+              , "Prov. València" = 1
               , "DEPARTAMENT DE SALUT DE VINAROS" = "VINAROS"
               , "DEPARTAMENT DE SALUT DE CASTELLO" = "CASTELLON"
               , "DEPARTAMENT DE SALUT DE LA PLANA" = "LA PLANA"
@@ -424,8 +465,8 @@ num_dep = c("C.Valenciana" = 0
             , "Homes/Hombres" = 0
             , "Dones/Mujeres" = 0
             , "Prov. Alacant/Alicante" = 0
-            , "Prov. CastellÃ³/CastellÃ³n" = 0
-            , "Prov. ValÃ¨ncia" = 0
+            , "Prov. Castelló/Castellón" = 0
+            , "Prov. València" = 0
             , "DEPARTAMENT DE SALUT DE VINAROS" = 01
             , "DEPARTAMENT DE SALUT DE CASTELLO" = 02
             , "DEPARTAMENT DE SALUT DE LA PLANA" = 03

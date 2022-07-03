@@ -14,6 +14,9 @@ library(mapproj)
 library(shinythemes)
 library(shinyWidgets)
 library(shinyalert)
+library(fda)
+library(fda.usc)
+library(sf)
 
 
 # Define UI for application that draws a histogram
@@ -30,19 +33,20 @@ shinyUI(fluidPage(
     sidebarLayout(
         sidebarPanel(
             # INTRO
-            tags$p("A continuaciÃ³ anem a comentar una sÃ¨rie de casos amb  Proves DiagnÃ²stiques dâInfecciÃ³ Activa, mÃ©s conegut com PDIA, positives en la Comunitat Valenciana, segons data de diagnÃ²stic de laboratori. Les PDIA inclouen dues proves de detecciÃ³ dâinfecciÃ³ activa, la PCR (sigles de polymerase chain reaction, reacciÃ³ en cadena de la polimerasa) i el test dâantÃ­gens, dâacord amb els procediments i documents tÃ¨cnics vigents elaborats pel Ministeri de Sanitat."),
+            p("A continuació anem a comentar una sèrie de casos amb  Proves Diagnòstiques d’Infecció Activa, més conegut com PDIA, positives en la Comunitat Valenciana, segons data de diagnòstic de laboratori. Les PDIA inclouen dues proves de detecció d’infecció activa, la PCR (sigles de polymerase chain reaction, reacció en cadena de la polimerasa) i el test d’antígens, d’acord amb els procediments i documents tècnics vigents elaborats pel Ministeri de Sanitat."),
             
             # BOTON DE SELEECION DE LA ZONA
             selectInput (inputId = "Zona",
-                         label = "ZONA:",
+                         label = h4("ZONA:"),
+                         selected = "C.Valenciana",
                          choices = c("C.Valenciana" = "C.Valenciana"
                                      , "Homes" = "Homes/Hombres"
                                      , "Dones" = "Dones/Mujeres"
                                      , "Prov. Alacant" = "Prov. Alacant/Alicante"
-                                     , "Prov. CastellÃ³" = "Prov. CastellÃ³/CastellÃ³n"
-                                     , "Prov. ValÃ¨ncia" = "Prov. ValÃ¨ncia"
+                                     , "Prov. Castelló" = "Prov. Castelló/Castellón"
+                                     , "Prov. València" = "Prov. València"
                                      , "Dep. Vinaros" = "DEPARTAMENT DE SALUT DE VINAROS"
-                                     , "Dep. CastellÃ³" = "DEPARTAMENT DE SALUT DE CASTELLO"
+                                     , "Dep. Castelló" = "DEPARTAMENT DE SALUT DE CASTELLO"
                                      , "Dep. La Plana" = "DEPARTAMENT DE SALUT DE LA PLANA"
                                      , "Dep. Sagunt" = "DEPARTAMENT DE SALUT DE SAGUNT"
                                      , "Dep. VCIA Clinic-Malva Rosa" = "DEPARTAMENT DE SALUT DE VCIA CLINIC-LA MALVA-ROSA"
@@ -68,35 +72,36 @@ shinyUI(fluidPage(
                          ) 
             ), 
             # FECHA ACTUALIZACION
-            tags$p("Ãltima data d'actualitzaciÃ³ :",data_actualitzacio,"."),
+            tags$p("Última data d'actualització :",data_actualitzacio,"."),
             
             # ENLACE AL COGIDO
-            tags$a(href="https://github.com/juanponsg/Estudia-e-Investiga.git", "CÃ³digo")
+            tags$a(href="https://github.com/juanponsg/Estudia-e-Investiga.git", "Codi"),
         ),
         
         # Show a plot of the generated distribution
         mainPanel(
-            useShinyalert(),
-            
-            # MOSTRAR WIDGETS EN UNA FILA CON TRES COLUMNAS Y SUS CORRESPONDIENTES BOTONES DE INFORMACION
-            fluidRow(
-                div(column(4,div(column(3, tags$h4("Mitjana")),column(1,actionButton("btn1", (tags$img(src="info.png",width = 24, height = 24))))), flexdashboard::gaugeOutput("mitjana")),
-                    column(4,div(column(4, tags$h4("Incidencia")),column(1,actionButton("btn2", (tags$img(src="info.png",width = 24, height = 24))))), flexdashboard::gaugeOutput("incidencia")),
-                    column(4,div(column(7, tags$h4("Mitjana 14 dies")),column(1,actionButton("btn3", (tags$img(src="info.png",width = 24, height = 24))))), flexdashboard::gaugeOutput("mitjana14")))
-            ),
-            
-            # MOSTRAR TITULOS MAPA Y GRAFICA CON LOS BOTONES DE INFORMACION EN UNA LINEA Y DOS COLUMNAS
-            fluidRow(
-                div(column(6,div(column(5, tags$blockquote("Mapa")),column(1,actionButton("btn4", (tags$img(src="info.png",width = 24, height = 24)))) ) ),
-                    column(6,div(column(5, tags$blockquote("EvoluciÃ³")),column(1,actionButton("btn5", (tags$img(src="info.png",width = 24, height = 24)))))))
-            ),
-            
-            # MOSTRAR EL MAPA Y LA GRAFICA EN UNA MISMA FILA Y DOS COLUMNAS
-            fluidRow(
-                div(column(6, plotOutput("mapa")),
-                    column(6, plotOutput("evolucion")), align = "center")
+            tabPanel(
+                title='INICIO', 
+                
+                # MOSTRAR WIDGETS EN UNA FILA CON TRES COLUMNAS Y SUS CORRESPONDIENTES BOTONES DE INFORMACION
+                fluidRow(
+                    div(column(4,div(column(3, tags$h4("Mitjana")),column(1,actionButton("btn1", (tags$img(src="info.png",width = 24, height = 24))))), flexdashboard::gaugeOutput("mitjana")),
+                        column(4,div(column(4, tags$h4("Incidencia")),column(1,actionButton("btn2", (tags$img(src="info.png",width = 24, height = 24))))), flexdashboard::gaugeOutput("incidencia")),
+                        column(4,div(column(7, tags$h4("Mitjana 14 dies")),column(1,actionButton("btn3", (tags$img(src="info.png",width = 24, height = 24))))), flexdashboard::gaugeOutput("mitjana14")))
+                ),
+                
+                # MOSTRAR TITULOS MAPA Y GRAFICA CON LOS BOTONES DE INFORMACION EN UNA LINEA Y DOS COLUMNAS
+                fluidRow(
+                    div(column(6,div(column(5, tags$blockquote("Mapa")),column(1,actionButton("btn4", (tags$img(src="info.png",width = 24, height = 24)))) ) ),
+                        column(6,div(column(5, tags$blockquote("Evolució")),column(1,actionButton("btn5", (tags$img(src="info.png",width = 24, height = 24)))))))
+                ),
+                
+                # MOSTRAR EL MAPA Y LA GRAFICA EN UNA MISMA FILA Y DOS COLUMNAS
+                fluidRow(
+                    div(column(6, plotOutput("mapa")),
+                        column(6, plotOutput("evolucion")), align = "center")
+                ) 
             )
-            
             
         )
     )
